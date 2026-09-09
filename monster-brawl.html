@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Monster Brawl</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  :root {
+    --bg1: #1e1147;
+    --bg2: #3a1c71;
+    --accent: #ffd166;
+    --hp: #ef476f;
+    --mp: #06d6a0;
+    --panel: rgba(20, 10, 45, 0.85);
+    --gold: #ffd166;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: radial-gradient(circle at top, var(--bg2), var(--bg1) 70%);
+    font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px;
+  }
+  h1 {
+    font-size: 2.2em;
+    margin: 6px 0 2px;
+    text-shadow: 0 0 12px var(--accent), 0 0 2px #000;
+    letter-spacing: 2px;
+  }
+  .subtitle { opacity: 0.75; margin-bottom: 10px; font-size: 0.9em; }
+  #game-wrap {
+    width: 100%;
+    max-width: 900px;
+    background: var(--panel);
+    border: 3px solid var(--accent);
+    border-radius: 16px;
+    padding: 16px;
+    box-shadow: 0 0 40px rgba(255,209,102,0.25);
+  }
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .pill {
+    background: rgba(0,0,0,0.35);
+    border: 1px solid var(--accent);
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-weight: bold;
+    font-size: 0.95em;
+  }
+  .gold { color: var(--gold); }
+  canvas {
+    display: block;
+    width: 100%;
+    background: linear-gradient(180deg, #2a1758 0%, #170c33 100%);
+    border-radius: 10px;
+    border: 2px solid #55308a;
+    touch-action: none;
+  }
+  #screen-menu, #screen-select, #screen-shop, #screen-result {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 10px;
+  }
+  .hidden { display: none !important; }
+  button {
+    font-family: inherit;
+    font-weight: bold;
+    font-size: 1em;
+    padding: 10px 22px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    background: linear-gradient(180deg, #ffe08a, #ffb703);
+    color: #402b00;
+    box-shadow: 0 4px 0 #b57900;
+    transition: transform 0.08s;
+  }
+  button:active { transform: translateY(3px); box-shadow: 0 1px 0 #b57900; }
+  button.secondary {
+    background: linear-gradient(180deg, #7dd3fc, #38bdf8);
+    color: #012a3a;
+    box-shadow: 0 4px 0 #0369a1;
+  }
+  button:disabled {
+    background: #555;
+    color: #999;
+    box-shadow: 0 4px 0 #333;
+    cursor: not-allowed;
+  }
+  .monster-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+    width: 100%;
+  }
+  .monster-card {
+    background: rgba(0,0,0,0.35);
+    border: 2px solid #55308a;
+    border-radius: 12px;
+    padding: 10px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s, transform 0.15s;
+  }
+  .monster-card:hover { transform: translateY(-3px); border-color: var(--accent); }
+  .monster-card.selected { border-color: var(--accent); box-shadow: 0 0 14px var(--accent); }
+  .monster-card.locked { opacity: 0.45; cursor: not-allowed; }
+  .monster-emoji { font-size: 2.6em; }
+  .monster-name { font-weight: bold; margin: 4px 0; }
+  .monster-stats { font-size: 0.75em; opacity: 0.85; line-height: 1.4; }
+  .bar-bg {
+    background: rgba(255,255,255,0.15);
+    border-radius: 6px;
+    overflow: hidden;
+    height: 8px;
+    margin-top: 3px;
+  }
+  .bar-fill { height: 100%; }
+  .log {
+    width: 100%;
+    max-height: 90px;
+    overflow-y: auto;
+    background: rgba(0,0,0,0.4);
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 0.82em;
+    margin-top: 8px;
+  }
+  .log div { padding: 1px 0; }
+  .abilities {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 10px;
+  }
+  .ability-btn {
+    min-width: 110px;
+    text-align: center;
+    background: linear-gradient(180deg, #c084fc, #7c3aed);
+    color: #fff;
+    box-shadow: 0 4px 0 #4c1d95;
+  }
+  .ability-btn small { display: block; font-weight: normal; opacity: 0.85; }
+  footer { margin-top: 10px; opacity: 0.5; font-size: 0.75em; }
+</style>
+</head>
+<body>
+<h1>⚔️ MONSTER BRAWL ⚔️</h1>
+<div class="subtitle">Pick a monster. Battle waves. Earn gold. Unlock legends.</div>
+
+<div id="game-wrap">
+  <div class="topbar">
+    <div class="pill">💰 Gold: <span id="gold-display" class="gold">0</span></div>
+    <div class="pill">🏆 Wins: <span id="wins-display">0</span></div>
+    <div class="pill">🌊 Wave: <span id="wave-display">1</span></div>
+  </div>
+
+  <!-- MENU -->
+  <div id="screen-menu">
+    <p style="text-align:center;max-width:500px;">Choose your fighter and brawl through waves of monsters! Win gold, unlock new monsters in the shop, and see how far you can go.</p>
+    <button id="btn-play">▶ Play</button>
+    <button class="secondary" id="btn-shop">🛒 Shop</button>
+  </div>
+
+  <!-- MONSTER SELECT -->
+  <div id="screen-select" class="hidden">
+    <h3 style="margin:0;">Select Your Monster</h3>
+    <div id="select-grid" class="monster-grid"></div>
+    <div style="display:flex; gap:10px;">
+      <button class="secondary" id="btn-select-back">⬅ Back</button>
+      <button id="btn-start-battle" disabled>Fight!</button>
+    </div>
+  </div>
+
+  <!-- SHOP -->
+  <div id="screen-shop" class="hidden">
+    <h3 style="margin:0;">Monster Shop</h3>
+    <div id="shop-grid" class="monster-grid"></div>
+    <button class="secondary" id="btn-shop-back">⬅ Back</button>
+  </div>
+
+  <!-- BATTLE -->
+  <div id="screen-battle" class="hidden" style="width:100%;">
+    <canvas id="canvas" width="860" height="360"></canvas>
+    <div class="abilities" id="ability-row"></div>
+    <div class="log" id="battle-log"></div>
+  </div>
+
+  <!-- RESULT -->
+  <div id="screen-result" class="hidden">
+    <h2 id="result-title">Victory!</h2>
+    <p id="result-detail"></p>
+    <div style="display:flex; gap:10px;">
+      <button id="btn-again">⚔ Fight Again</button>
+      <button class="secondary" id="btn-menu">🏠 Menu</button>
+    </div>
+  </div>
+</div>
+<footer>Fan recreation inspired by Blooket's Monster Brawl — built for fun, not affiliated with Blooket.</footer>
+
+<script>
+(function() {
+  "use strict";
+
+  // ---------- Persistent state ----------
+  const SAVE_KEY = "monsterBrawlSave_v1";
+  function loadSave() {
+    try {
+      const raw = localStorage.getItem(SAVE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    return { gold: 50, wins: 0, unlocked: ["slime", "pyro", "aqua"] };
+  }
+  function saveGame() {
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch (e) {}
+  }
+  const state = loadSave();
+
+  // ---------- Monster roster ----------
+  const MONSTERS = [
+    { id: "slime", name: "Slime", emoji: "🟢", cost: 0, hp: 90, atk: 12, spd: 8, color: "#7CFC00",
+      abilities: [
+        { name: "Ooze Slap", dmg: [10, 16], cost: 0, desc: "Quick basic hit" },
+        { name: "Bounce Bash", dmg: [18, 26], cost: 20, desc: "Big bouncy hit", cooldown: 2 },
+      ] },
+    { id: "pyro", name: "Pyroclaw", emoji: "🔥", cost: 0, hp: 80, atk: 16, spd: 10, color: "#FF5733",
+      abilities: [
+        { name: "Claw Strike", dmg: [12, 18], cost: 0, desc: "Quick basic hit" },
+        { name: "Fireball", dmg: [22, 30], cost: 25, desc: "Burning blast", cooldown: 2 },
+      ] },
+    { id: "aqua", name: "Aquafin", emoji: "🐟", cost: 0, hp: 100, atk: 10, spd: 7, color: "#33C1FF",
+      abilities: [
+        { name: "Tail Whip", dmg: [8, 14], cost: 0, desc: "Quick basic hit" },
+        { name: "Tidal Wave", dmg: [16, 24], cost: 15, desc: "Wide splash", cooldown: 1 },
+      ] },
+    { id: "rocky", name: "Rockjaw", emoji: "🪨", cost: 150, hp: 130, atk: 14, spd: 4, color: "#A9A9A9",
+      abilities: [
+        { name: "Boulder Punch", dmg: [14, 20], cost: 0, desc: "Quick basic hit" },
+        { name: "Landslide", dmg: [26, 34], cost: 30, desc: "Crushing blow", cooldown: 3 },
+      ] },
+    { id: "volt", name: "Voltrix", emoji: "⚡", cost: 250, hp: 85, atk: 18, spd: 14, color: "#FFD700",
+      abilities: [
+        { name: "Static Zap", dmg: [12, 18], cost: 0, desc: "Quick basic hit" },
+        { name: "Thunder Surge", dmg: [24, 32], cost: 25, desc: "Shocking strike", cooldown: 2 },
+      ] },
+    { id: "shade", name: "Shadowmaw", emoji: "🌑", cost: 400, hp: 95, atk: 20, spd: 12, color: "#8A2BE2",
+      abilities: [
+        { name: "Dark Bite", dmg: [14, 22], cost: 0, desc: "Quick basic hit" },
+        { name: "Void Slash", dmg: [28, 38], cost: 30, desc: "Reality-tearing hit", cooldown: 2 },
+      ] },
+    { id: "drake", name: "Drakonis", emoji: "🐉", cost: 700, hp: 140, atk: 22, spd: 9, color: "#FF1744",
+      abilities: [
+        { name: "Dragon Claw", dmg: [16, 24], cost: 0, desc: "Quick basic hit" },
+        { name: "Inferno Roar", dmg: [32, 44], cost: 35, desc: "Devastating breath", cooldown: 3 },
+      ] },
+  ];
+
+  const ENEMY_NAMES = ["Grub", "Fang", "Sludge", "Rattlebones", "Wisp", "Grunt", "Warden", "Colossus"];
+  const ENEMY_EMOJI = ["🦠", "🦴", "👹", "🕷️", "👻", "🧟", "🐗", "🦖"];
+
+  // ---------- Screens ----------
+  const screens = {
+    menu: document.getElementById("screen-menu"),
+    select: document.getElementById("screen-select"),
+    shop: document.getElementById("screen-shop"),
+    battle: document.getElementById("screen-battle"),
+    result: document.getElementById("screen-result"),
+  };
+  function showScreen(name) {
+    Object.values(screens).forEach(s => s.classList.add("hidden"));
+    screens[name].classList.remove("hidden");
+  }
+
+  function refreshTopbar() {
+    document.getElementById("gold-display").textContent = state.gold;
+    document.getElementById("wins-display").textContent = state.wins;
+  }
+  refreshTopbar();
+
+  // ---------- Menu ----------
+  document.getElementById("btn-play").onclick = () => { renderSelect(); showScreen("select"); };
+  document.getElementById("btn-shop").onclick = () => { renderShop(); showScreen("shop"); };
+  document.getElementById("btn-select-back").onclick = () => showScreen("menu");
+  document.getElementById("btn-shop-back").onclick = () => showScreen("menu");
+  document.getElementById("btn-menu").onclick = () => showScreen("menu");
+
+  // ---------- Select screen ----------
+  let chosenMonster = null;
+  function renderSelect() {
+    chosenMonster = null;
+    document.getElementById("btn-start-battle").disabled = true;
+    const grid = document.getElementById("select-grid");
+    grid.innerHTML = "";
+    MONSTERS.forEach(m => {
+      const unlocked = state.unlocked.includes(m.id);
+      const card = document.createElement("div");
+      card.className = "monster-card" + (unlocked ? "" : " locked");
+      card.innerHTML = `
+        <div class="monster-emoji">${m.emoji}</div>
+        <div class="monster-name">${m.name}</div>
+        <div class="monster-stats">
+          HP ${m.hp} · ATK ${m.atk} · SPD ${m.spd}
+        </div>
+        ${unlocked ? "" : `<div class="monster-stats" style="color:var(--gold);">🔒 ${m.cost}g in Shop</div>`}
+      `;
+      if (unlocked) {
+        card.onclick = () => {
+          document.querySelectorAll("#select-grid .monster-card").forEach(c => c.classList.remove("selected"));
+          card.classList.add("selected");
+          chosenMonster = m;
+          document.getElementById("btn-start-battle").disabled = false;
+        };
+      }
+      grid.appendChild(card);
+    });
+  }
+  document.getElementById("btn-start-battle").onclick = () => {
+    if (chosenMonster) startBattle(chosenMonster);
+  };
+
+  // ---------- Shop screen ----------
+  function renderShop() {
+    const grid = document.getElementById("shop-grid");
+    grid.innerHTML = "";
+    MONSTERS.forEach(m => {
+      const unlocked = state.unlocked.includes(m.id);
+      const card = document.createElement("div");
+      card.className = "monster-card";
+      card.innerHTML = `
+        <div class="monster-emoji">${m.emoji}</div>
+        <div class="monster-name">${m.name}</div>
+        <div class="monster-stats">HP ${m.hp} · ATK ${m.atk} · SPD ${m.spd}</div>
+      `;
+      const btn = document.createElement("button");
+      if (unlocked) {
+        btn.textContent = "Owned";
+        btn.disabled = true;
+      } else {
+        btn.textContent = `Buy - ${m.cost}g`;
+        btn.disabled = state.gold < m.cost;
+        btn.onclick = () => {
+          if (state.gold >= m.cost) {
+            state.gold -= m.cost;
+            state.unlocked.push(m.id);
+            saveGame();
+            refreshTopbar();
+            renderShop();
+          }
+        };
+      }
+      card.appendChild(btn);
+      grid.appendChild(card);
+    });
+  }
+
+  // ---------- Battle engine ----------
+  const canvas = document.getElementById("canvas");
+  const ctx = canvas.getContext("2d");
+  let wave = 1;
+  let player = null, enemy = null;
+  let battleActive = false;
+  let animT = 0;
+  let shakeT = 0;
+  let particles = [];
+  let playerCooldowns = {};
+
+  function makeEnemyFor(wave) {
+    const idx = Math.min(ENEMY_NAMES.length - 1, Math.floor((wave - 1) / 1) % ENEMY_NAMES.length);
+    const scale = 1 + (wave - 1) * 0.18;
+    return {
+      name: ENEMY_NAMES[idx] + (wave > ENEMY_NAMES.length ? " " + wave : ""),
+      emoji: ENEMY_EMOJI[idx],
+      maxHp: Math.round(70 * scale),
+      hp: Math.round(70 * scale),
+      atk: Math.round(8 * scale) + 4,
+      color: "#ff6b6b",
+    };
+  }
+
+  function startBattle(monster) {
+    player = {
+      ...monster,
+      maxHp: monster.hp,
+      hp: monster.hp,
+      mana: 0,
+      maxMana: 40,
+    };
+    wave = 1;
+    enemy = makeEnemyFor(wave);
+    playerCooldowns = {};
+    document.getElementById("wave-display").textContent = wave;
+    battleActive = true;
+    clearLog();
+    log(`A wild ${enemy.name} ${enemy.emoji} appears!`);
+    renderAbilities();
+    showScreen("battle");
+    requestAnimationFrame(loop);
+  }
+
+  function clearLog() { document.getElementById("battle-log").innerHTML = ""; }
+  function log(msg) {
+    const el = document.getElementById("battle-log");
+    const d = document.createElement("div");
+    d.textContent = msg;
+    el.appendChild(d);
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function renderAbilities() {
+    const row = document.getElementById("ability-row");
+    row.innerHTML = "";
+    player.abilities.forEach((ab, i) => {
+      const btn = document.createElement("button");
+      btn.className = "ability-btn";
+      const cdLeft = playerCooldowns[i] || 0;
+      const affordable = player.mana >= ab.cost && cdLeft <= 0;
+      btn.disabled = !battleActive || !affordable;
+      btn.innerHTML = `${ab.name}<small>${ab.dmg[0]}-${ab.dmg[1]} dmg${ab.cost ? " · " + ab.cost + " MP" : ""}${cdLeft > 0 ? " · CD " + cdLeft : ""}</small>`;
+      btn.onclick = () => playerAttack(i);
+      row.appendChild(btn);
+    });
+  }
+
+  function rand(a, b) { return Math.floor(Math.random() * (b - a + 1)) + a; }
+
+  function spawnParticles(x, y, color, n) {
+    for (let i = 0; i < n; i++) {
+      particles.push({
+        x, y,
+        vx: (Math.random() - 0.5) * 6,
+        vy: (Math.random() - 1.5) * 6,
+        life: 30 + Math.random() * 10,
+        color,
+      });
+    }
+  }
+
+  function playerAttack(i) {
+    if (!battleActive) return;
+    const ab = player.abilities[i];
+    if ((playerCooldowns[i] || 0) > 0 || player.mana < ab.cost) return;
+    player.mana -= ab.cost;
+    if (ab.cooldown) playerCooldowns[i] = ab.cooldown;
+    const dmg = rand(ab.dmg[0], ab.dmg[1]);
+    enemy.hp = Math.max(0, enemy.hp - dmg);
+    shakeT = 10;
+    spawnParticles(canvas.width * 0.72, canvas.height * 0.45, "#ffd166", 14);
+    log(`Your ${player.name} used ${ab.name} for ${dmg} damage!`);
+    renderAbilities();
+
+    if (enemy.hp <= 0) {
+      setTimeout(() => winWave(), 500);
+      return;
+    }
+    setTimeout(enemyTurn, 650);
+  }
+
+  function enemyTurn() {
+    if (!battleActive) return;
+    const dmg = rand(enemy.atk - 3, enemy.atk + 4);
+    player.hp = Math.max(0, player.hp - dmg);
+    player.mana = Math.min(player.maxMana, player.mana + 10);
+    shakeT = 10;
+    spawnParticles(canvas.width * 0.24, canvas.height * 0.45, "#ef476f", 14);
+    log(`${enemy.name} attacks for ${dmg} damage!`);
+    Object.keys(playerCooldowns).forEach(k => { if (playerCooldowns[k] > 0) playerCooldowns[k]--; });
+    renderAbilities();
+    if (player.hp <= 0) {
+      setTimeout(() => loseBattle(), 500);
+    }
+  }
+
+  function winWave() {
+    const goldEarned = 15 + wave * 5;
+    state.gold += goldEarned;
+    state.wins += 1;
+    saveGame();
+    refreshTopbar();
+    log(`${enemy.name} defeated! +${goldEarned} gold.`);
+    wave += 1;
+    document.getElementById("wave-display").textContent = wave;
+    enemy = makeEnemyFor(wave);
+    player.mana = Math.min(player.maxMana, player.mana + 15);
+    setTimeout(() => {
+      log(`A wild ${enemy.name} ${enemy.emoji} appears! (Wave ${wave})`);
+      renderAbilities();
+    }, 400);
+  }
+
+  function loseBattle() {
+    battleActive = false;
+    const goldEarned = Math.floor(wave * 6);
+    state.gold += goldEarned;
+    saveGame();
+    refreshTopbar();
+    document.getElementById("result-title").textContent = "Defeated...";
+    document.getElementById("result-detail").textContent =
+      `You made it to wave ${wave} with ${player.name}. Earned ${goldEarned} bonus gold.`;
+    showScreen("result");
+  }
+
+  document.getElementById("btn-again").onclick = () => {
+    if (chosenMonster) startBattle(chosenMonster);
+    else showScreen("menu");
+  };
+
+  // ---------- Render loop ----------
+  function drawBar(x, y, w, h, pct, colorFill, bg) {
+    ctx.fillStyle = bg || "rgba(255,255,255,0.15)";
+    ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = colorFill;
+    ctx.fillRect(x, y, w * Math.max(0, pct), h);
+    ctx.strokeStyle = "rgba(255,255,255,0.5)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x, y, w, h);
+  }
+
+  function loop() {
+    if (!screens.battle.classList.contains("hidden")) {
+      animT += 0.05;
+      if (shakeT > 0) shakeT--;
+      draw();
+    }
+    requestAnimationFrame(loop);
+  }
+
+  function draw() {
+    const w = canvas.width, h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    // background arena
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, "#2a1758");
+    grad.addColorStop(1, "#150a30");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = "rgba(0,0,0,0.25)";
+    ctx.fillRect(0, h - 40, w, 40);
+
+    const shakeX = shakeT > 0 ? (Math.random() - 0.5) * shakeT : 0;
+    ctx.save();
+    ctx.translate(shakeX, 0);
+
+    if (player && enemy) {
+      const bob = Math.sin(animT * 2) * 6;
+
+      // Player
+      const px = w * 0.24, py = h * 0.45 + bob;
+      ctx.font = "90px serif";
+      ctx.textAlign = "center";
+      ctx.fillText(player.emoji, px, py);
+      drawBar(px - 70, py + 40, 140, 12, player.hp / player.maxHp, "#ef476f");
+      drawBar(px - 70, py + 56, 140, 8, player.mana / player.maxMana, "#06d6a0");
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 15px sans-serif";
+      ctx.fillText(`${player.name} (Lv.${wave})`, px, py - 100);
+      ctx.font = "12px sans-serif";
+      ctx.fillText(`${player.hp}/${player.maxHp} HP`, px, py + 72);
+
+      // Enemy
+      const ex = w * 0.76, ey = h * 0.45 - bob;
+      ctx.font = "90px serif";
+      ctx.fillText(enemy.emoji, ex, ey);
+      drawBar(ex - 70, ey + 40, 140, 12, enemy.hp / enemy.maxHp, "#ff8fa3");
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 15px sans-serif";
+      ctx.fillText(enemy.name, ex, ey - 100);
+      ctx.font = "12px sans-serif";
+      ctx.fillText(`${enemy.hp}/${enemy.maxHp} HP`, ex, ey + 60);
+
+      // VS
+      ctx.font = "bold 22px sans-serif";
+      ctx.fillStyle = "rgba(255,209,102,0.8)";
+      ctx.fillText("VS", w / 2, h * 0.4);
+    }
+
+    // particles
+    particles.forEach(p => {
+      ctx.globalAlpha = Math.max(0, p.life / 40);
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+      ctx.fill();
+      p.x += p.vx; p.y += p.vy; p.vy += 0.2; p.life--;
+    });
+    ctx.globalAlpha = 1;
+    particles = particles.filter(p => p.life > 0);
+
+    ctx.restore();
+  }
+
+  showScreen("menu");
+})();
+</script>
+</body>
+</html>
