@@ -1,0 +1,33 @@
+services:
+  neko:
+    image: "ghcr.io/m1k1o/neko/${BROWSER:-firefox}:latest"
+    restart: unless-stopped
+    shm_size: "2gb"
+    ports:
+      - "8080:8080"
+      - "52000:52000/udp"
+      - "52000:52000/tcp"
+    environment:
+      NEKO_DESKTOP_SCREEN: "${SCREEN:-1280x720@30}"
+      NEKO_MEMBER_PROVIDER: "multiuser"
+      NEKO_MEMBER_MULTIUSER_USER_PASSWORD: "${USER_PASSWORD:?set USER_PASSWORD in .env}"
+      NEKO_MEMBER_MULTIUSER_ADMIN_PASSWORD: "${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}"
+      NEKO_WEBRTC_UDPMUX: "52000"
+      NEKO_WEBRTC_TCPMUX: "52000"
+      NEKO_WEBRTC_ICELITE: "true"
+      NEKO_WEBRTC_NAT1TO1: "${PUBLIC_IP:-}"
+
+  caddy:
+    image: caddy:2
+    profiles: ["https"]
+    restart: unless-stopped
+    depends_on: [neko]
+    ports:
+      - "80:80"
+      - "443:443"
+    command: caddy reverse-proxy --from "${DOMAIN:-localhost}" --to neko:8080
+    volumes:
+      - caddy_data:/data
+
+volumes:
+  caddy_data:

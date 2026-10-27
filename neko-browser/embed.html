@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Virtual Browser</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #000; }
+    iframe { border: 0; width: 100%; height: 100%; display: block; }
+  </style>
+</head>
+<body>
+  <iframe id="neko" allow="autoplay; fullscreen; clipboard-read; clipboard-write" allowfullscreen></iframe>
+  <script>
+    // NOTE: if this page is served over https://, NEKO_URL must also be https://
+    // (run `bash setup.sh your.domain.com`), otherwise the browser blocks the iframe.
+    const NEKO_URL = "http://YOUR_SERVER_IP:8080";
+    const PASSWORD = "YOUR_USER_PASSWORD";
+
+    // Neko v3 auto-login: ?usr=<name>&pwd=<password>
+    const guest = "guest-" + Math.random().toString(36).slice(2, 7);
+    const url = new URL(NEKO_URL);
+    url.searchParams.set("usr", guest);
+    url.searchParams.set("pwd", PASSWORD);
+    document.getElementById("neko").src = url.toString();
+  </script>
+</body>
+</html>
